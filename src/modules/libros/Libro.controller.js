@@ -17,7 +17,8 @@ export const obtenerLibros = async (req, res) => {
     if (genero) filtros.genero = genero;
     if (editorial) filtros.editorial = editorial;
     if (autor) filtros.autor = autor;
-    if (titulo) filtros.titulo = { $regex: titulo, $options: 'i' };
+  // Guardar el título como string; el servicio construye el $regex correctamente
+  if (titulo) filtros.titulo = titulo;
     if (disponible) filtros.disponible = disponible === 'true';
     
     const resultado = await libroService.obtenerLibros(
