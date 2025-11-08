@@ -80,7 +80,7 @@ npm start
 
 ### Autenticación
 
-#### POST /api/v1/usuarios/registro
+#### POST /api/v1/usuarios/register
 Registra un nuevo usuario.
 ```json
 {
