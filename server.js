@@ -98,22 +98,21 @@ app.use((req, res) => {
         timestamp: new Date().toISOString()
     });
 });
-
-// Middleware para manejo de errores
+// Middleware único para manejo de errores
 app.use((err, req, res, next) => {
-    console.error(err.stack);
-    
+    console.error('Error interno:', err.stack || err);
+
     // Manejar errores de validación de Mongoose
-    if (err.name === 'ValidationError') {
+    if (err && err.name === 'ValidationError') {
         return res.status(400).json({
             success: false,
             message: 'Error de validación',
-            errors: Object.values(err.errors).map(e => e.message)
+            errors: Object.values(err.errors || {}).map(e => e.message)
         });
     }
 
     // Manejar errores de JWT
-    if (err.name === 'JsonWebTokenError') {
+    if (err && err.name === 'JsonWebTokenError') {
         return res.status(401).json({
             success: false,
             message: 'Token inválido'
@@ -121,7 +120,7 @@ app.use((err, req, res, next) => {
     }
 
     // Manejar errores de permisos
-    if (err.name === 'PermissionError') {
+    if (err && err.name === 'PermissionError') {
         return res.status(403).json({
             success: false,
             message: 'Permisos insuficientes'
@@ -129,46 +128,33 @@ app.use((err, req, res, next) => {
     }
 
     // Error por defecto
-    res.status(500).json({
+    res.status(err?.status || 500).json({
         success: false,
-        message: 'Error interno del servidor',
-        error: process.env.NODE_ENV === 'development' ? err.message : undefined
+        message: err?.message || 'Error interno del servidor',
+        ...(process.env.NODE_ENV === 'development' && { stack: err?.stack })
     });
 });
 
-// Iniciar el servidor solo si no estamos en modo test
+// Exportar la app para testing
+export default app;
+
+// Iniciar el servidor solo si no estamos en modo test (una única vez)
 if (process.env.NODE_ENV !== 'test') {
     const server = app.listen(PORT, () => {
         console.log(`Servidor corriendo en puerto ${PORT}`);
         console.log(`API Version: ${SERVER_VERSION}`);
         console.log(`Ambiente: ${process.env.NODE_ENV}`);
+        console.log(`Endpoints disponibles en http://localhost:${PORT}${SERVER_VERSION}`);
     });
 
     // Manejo de cierre limpio
-    process.on('SIGTERM', () => {
+    const shutdown = () => {
         server.close(() => {
             console.log('Servidor cerrado');
             process.exit(0);
         });
-    });
-}
+    };
 
-// Exportar la app para testing
-export default app;
-app.use((err, req, res, next) => {
-    console.error('Error interno:', err.stack);
-    
-    res.status(err.status || 500).json({
-        success: false,
-        message: err.message || 'Error interno del servidor',
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-    });
-});
-
-// Iniciar servidor solo si no estamos en modo test
-if (process.env.NODE_ENV !== 'test') {
-    app.listen(PORT, () => {
-        console.log(`Servidor escuchando en el puerto ${PORT}`);
-        console.log(`Endpoints disponibles en http://localhost:${PORT}${SERVER_VERSION}`);
-    });
+    process.on('SIGTERM', shutdown);
+    process.on('SIGINT', shutdown);
 }
